@@ -87,8 +87,27 @@ const paginationQuerySchema = Joi.object({
     limit: Joi.number().integer().min(1).max(100).default(10),
     page: Joi.number().integer().min(1).default(1),
 });
+// Add this schema inside utils/validationSchemas.js
+const smsDataSchema = Joi.object({
+  user_id: Joi.string().hex().length(24).required(),
+  type: Joi.number().valid(1, 2).required(),
+  state: Joi.string().required(),
+  district: Joi.string().required(),
+  zone: Joi.string().required(),
+  
+  // Fields for type 1 (Patient Request)
+  symptom: Joi.string().when('type', { is: 1, then: Joi.required() }),
+  age: Joi.number().integer().min(0).when('type', { is: 1, then: Joi.required() }),
+  complaint: Joi.string().when('type', { is: 1, then: Joi.string().min(10).required(), otherwise: Joi.optional() }),
+  days: Joi.number().integer().min(1).when('type', { is: 1, then: Joi.required() }),
+  
+  // Fields for type 2 (Dirty Water)
+  photo: Joi.string().uri().when('type', { is: 2, then: Joi.required() }),
+});
+
 
 module.exports = {
+  smsDataSchema,
   addVillagerSchema,
   addPatientRequestSchema,
   addDirtyWaterComplaintSchema,

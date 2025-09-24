@@ -39,6 +39,7 @@ app.use('/api/v1', require('./routes/complaintRoutes'));
 app.use('/api/v1/workers', require('./routes/workerRoutes'));
 app.use('/api/v1/auth', require('./routes/authRoutes'));
 app.use('/api/v1/predictions', require('./routes/predictionRoutes'));
+app.use('/api/v1/sms-data', require('./routes/smsRoutes'));
 app.use('/api/v1/help-requests', require('./routes/helpRequestRoutes'));
 
 
