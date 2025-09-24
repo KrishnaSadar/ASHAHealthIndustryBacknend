@@ -6,7 +6,7 @@ const {
   setWorkerZone,
   setWorkerStatus,
 } = require('../controllers/workerController');
-const { protectAdmin, protectWorker } = require('../middleware/authMiddleware');
+// const { protectAdmin, protectWorker } = require('../middleware/authMiddleware');
 
 router.post('/',addWorker);
 router.delete('/:workerId',deleteWorker);

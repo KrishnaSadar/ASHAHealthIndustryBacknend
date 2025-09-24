@@ -1,5 +1,8 @@
-const serverless = require('serverless-http');
-const app = require('../index'); // Import the configured express app
+// api/index.js
+import app from '../dist/app.js'; // path from api/index.js to dist/app.js
 
-// Vercel requires a single handler export
-module.exports = serverless(app);
+export default async function handler(req, res) {
+  // Just forward to express app
+  // helloe buddy
+  return app(req, res);
+}
