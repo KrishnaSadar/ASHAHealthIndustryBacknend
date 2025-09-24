@@ -21,24 +21,13 @@ const PORT = process.env.PORT || 5000;
 // --- GLOBAL MIDDLEWARE ---
 // Enable CORS for all origins
 app.use(cors());
-// Set various HTTP headers for security
-app.use(helmet());
 // Parse JSON bodies
 app.use(express.json());
 // Logger for HTTP requests in development
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
-// Basic rate limiting to prevent abuse
-// After
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  trustProxy: 1, // Add this line
-});
-app.use(limiter);
+
 
 // --- API ROUTES ---
 app.get('/', (req, res) => {
