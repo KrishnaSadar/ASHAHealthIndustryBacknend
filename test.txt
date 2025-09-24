@@ -1,0 +1,149 @@
+---
+
+### **API Endpoint Reference for Testing**
+
+Here is a guide to test every endpoint on your server. Use a tool like Postman or `curl`.
+
+**Base URL:** `http://localhost:5001` (or your Vercel URL)
+
+#### **Villagers**
+
+* **Add Villager**
+    * **Request:** `POST /api/v1/villagers`
+    * **Body (JSON):**
+        ```json
+        {
+          "mobile_no": "9876543210",
+          "name": "Ramesh",
+          "last_name": "Patil",
+          "latitude": 21.0077,
+          "longitude": 75.5626,
+          "age": 45,
+          "gender": "Male"
+        }
+        ```
+
+---
+
+#### **Complaints**
+
+* **Add Patient Request**
+    * **Request:** `POST /api/v1/patient-requests`
+    * **Body (JSON):** (Replace `"user_id"` with a valid Villager ID)
+        ```json
+        {
+          "user_id": "656b6a48f5a2a22f3f9e9a1b",
+          "state": "Maharashtra",
+          "district": "Jalgaon",
+          "zone": "Zone-A",
+          "symptoms": ["Fever", "Headache"],
+          "age": 45,
+          "complaint": "Feeling unwell for the past three days with a high fever.",
+          "days": 3
+        }
+        ```
+* **Add Dirty Water Complaint**
+    * **Request:** `POST /api/v1/dirty-water-complaints`
+    * **Body (JSON):** (Replace `"user_id"` with a valid Villager ID)
+        ```json
+        {
+          "user_id": "656b6a48f5a2a22f3f9e9a1b",
+          "state": "Maharashtra",
+          "district": "Jalgaon",
+          "zone": "Zone-A",
+          "age": 45,
+          "complaint": "The water from the main tap is brown and smells bad.",
+          "photo": "https://example.com/images/dirty_water.jpg"
+        }
+        ```
+* **Update Complaint Status**
+    * **Request:** `PUT /api/v1/complaints/{complaintId}/status` (Replace `{complaintId}` with a real ID)
+    * **Body (JSON):**
+        ```json
+        { "status": 2 }
+        ```
+* **Get Patient Complaints**
+    * **Request:** `GET /api/v1/patient-requests?zone=Zone-A&status=1&limit=5`
+* **Get Dirty Water Complaints**
+    * **Request:** `GET /api/v1/dirty-water-complaints?status=1`
+
+---
+
+#### **Workers & Auth**
+
+* **Add Worker (Admin)**
+    * **Request:** `POST /api/v1/workers`
+    * **Headers:** `Authorization: Bearer your_static_admin_bearer_token_for_protected_routes`
+    * **Body (JSON):**
+        ```json
+        {
+          "user_id": "asha_worker_01",
+          "password": "password123",
+          "mobile_no": "8877665544",
+          "name": "Sunita",
+          "last_name": "Sharma",
+          "alloted_zone": "Zone-A",
+          "age": 35,
+          "gender": "Female"
+        }
+        ```
+* **Worker Login**
+    * **Request:** `POST /api/v1/auth/worker/login`
+    * **Body (JSON):**
+        ```json
+        {
+          "user_id": "asha_worker_01",
+          "password": "password123"
+        }
+        ```
+* **Delete Worker (Admin)**
+    * **Request:** `DELETE /api/v1/workers/asha_worker_01`
+    * **Headers:** `Authorization: Bearer your_static_admin_bearer_token_for_protected_routes`
+* **Set Worker Zone (Admin)**
+    * **Request:** `PUT /api/v1/workers/asha_worker_01/zone`
+    * **Headers:** `Authorization: Bearer your_static_admin_bearer_token_for_protected_routes`
+    * **Body (JSON):**
+        ```json
+        { "zone": "Zone-C" }
+        ```
+* **Set Worker Status (Admin)**
+    * **Request:** `PUT /api/v1/workers/asha_worker_01/status`
+    * **Headers:** `Authorization: Bearer your_static_admin_bearer_token_for_protected_routes`
+    * **Body (JSON):**
+        ```json
+        { "status": 0 }
+        ```
+
+---
+
+#### **Predictions**
+
+* **Trigger Prediction**
+    * **Request:** `POST /api/v1/predictions/trigger`
+    * **Body (JSON):**
+        ```json
+        [
+          { "zone": "Zone-A", "symptoms": ["Fever","Cough"], "ph": 7.1, "turbidity": 2.3 },
+          { "zone": "Zone-B", "symptoms": ["Diarrhea"], "ph": 6.8, "turbidity": 3.1 }
+        ]
+        ```
+* **Get Zone Prediction**
+    * **Request:** `GET /api/v1/predictions/Zone-A`
+
+---
+
+#### **Help Requests**
+
+* **Ask for Help (Unauthenticated or workerId in body)**
+    * **Request:** `POST /api/v1/help-requests`
+    * **Body (JSON):**
+        ```json
+        { "zone": "Zone-B", "workerId": "asha_worker_01" }
+        ```
+* **Ask for Help (Authenticated Worker)**
+    * **Request:** `POST /api/v1/help-requests`
+    * **Headers:** `Authorization: Bearer <worker_jwt_token_from_login>`
+    * **Body (JSON):**
+        ```json
+        { "zone": "Zone-A" }
+        ```
