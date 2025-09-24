@@ -30,11 +30,13 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 // Basic rate limiting to prevent abuse
+// After
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: 1, // Add this line
 });
 app.use(limiter);
 
