@@ -147,3 +147,6 @@ Here is a guide to test every endpoint on your server. Use a tool like Postman o
         ```json
         { "zone": "Zone-A" }
         ```
+Method: GET
+
+URL: http://localhost:5001/api/v1/villagers

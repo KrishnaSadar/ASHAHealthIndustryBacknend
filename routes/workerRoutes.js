@@ -5,10 +5,13 @@ const {
   deleteWorker,
   setWorkerZone,
   setWorkerStatus,
+   getAllWorkers,
 } = require('../controllers/workerController');
 // const { protectAdmin, protectWorker } = require('../middleware/authMiddleware');
 
-router.post('/',addWorker);
+router.route('/')
+  .post(addWorker)
+  .get(getAllWorkers);
 router.delete('/:workerId',deleteWorker);
 router.put('/:workerId/zone',setWorkerZone);
 router.put('/:workerId/status',setWorkerStatus); // Or protectWorker for self-update

@@ -119,10 +119,40 @@ const setWorkerStatus = asyncHandler(async (req, res) => {
 
   res.status(200).json({ success: true, workerId: worker._id, newStatus: worker.status });
 });
+/**
+ * @desc    Get all ASHA workers
+ * @route   GET /api/v1/workers
+ * @access  Admin
+ */
+const getAllWorkers = asyncHandler(async (req, res) => {
+  // Set up pagination
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
 
+  // Find workers, excluding the passwordHash for security
+  const workers = await AshaWorker.find({})
+    .select('-passwordHash')
+    .limit(limit)
+    .skip(skip);
+
+  const totalWorkers = await AshaWorker.countDocuments();
+
+  res.status(200).json({
+    success: true,
+    count: workers.length,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalWorkers / limit),
+      totalWorkers,
+    },
+    data: workers,
+  });
+});
 module.exports = {
   addWorker,
   deleteWorker,
   setWorkerZone,
   setWorkerStatus,
+  getAllWorkers,
 };
