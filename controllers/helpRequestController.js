@@ -46,7 +46,41 @@ const deleteHelpRequest = asyncHandler(async (req, res) => {
 
   res.status(200).json({ success: true, message: 'Help request deleted' });
 });
+/**
+ * @desc    Get all help requests
+ * @route   GET /api/v1/help-requests
+ * @access  Admin
+ */
+const getAllHelpRequests = asyncHandler(async (req, res) => {
+  // Set up pagination
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
+
+  // Find all help requests, sort by most recent
+  // Populate worker details, excluding their password
+  const helpRequests = await HelpRequest.find({})
+    .sort({ createdAt: -1 })
+    .populate('workerId', 'name mobileNo zone') // Get worker's name, mobile, and zone
+    .limit(limit)
+    .skip(skip);
+
+  const totalHelpRequests = await HelpRequest.countDocuments();
+
+  res.status(200).json({
+    success: true,
+    count: helpRequests.length,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalHelpRequests / limit),
+      total: totalHelpRequests,
+    },
+    data: helpRequests,
+  });
+});
+
 module.exports = {
   addHelpRequest,
    deleteHelpRequest, 
+   getAllHelpRequests,
 };
