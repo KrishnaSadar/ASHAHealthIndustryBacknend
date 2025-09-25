@@ -51,7 +51,33 @@ const addVillager = asyncHandler(async (req, res) => {
     throw new Error('Invalid villager data');
   }
 });
+/**
+ * @desc    Get all villagers with pagination
+ * @route   GET /api/v1/villagers
+ * @access  Public
+ */
+const getAllVillagers = asyncHandler(async (req, res) => {
+  // Set up pagination from query parameters or use defaults
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
 
+  // Fetch villagers and the total count for pagination metadata
+  const villagers = await Villager.find({}).limit(limit).skip(skip);
+  const totalVillagers = await Villager.countDocuments();
+
+  res.status(200).json({
+    success: true,
+    count: villagers.length,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalVillagers / limit),
+      totalVillagers,
+    },
+    data: villagers,
+  });
+});
 module.exports = {
   addVillager,
+  getAllVillagers,
 };

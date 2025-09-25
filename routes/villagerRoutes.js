@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { addVillager } = require('../controllers/villagerController');
+const { addVillager,getAllVillagers  } = require('../controllers/villagerController');
 
-router.post('/', addVillager);
+router.route('/')
+  .get(getAllVillagers)
+  .post(addVillager);
+
 
 module.exports = router;

@@ -1,0 +1,399 @@
+ASHA Worker — App Specification (Kotlin + XML)
+
+Purpose: A clean, secure Android app for ASHA workers who respond to water-pollution-related health complaints. Workers log in with govt-assigned credentials, view and manage complaints in their assigned zone, submit new patient and dirty-water complaints (with photo upload to Supabase), request medical help, and view water-quality (pH & turbidity) and complaint visualizations.
+
+1) High-level requirements
+
+Platform & tech: Android (Kotlin) using XML layouts. Use AndroidX components (ViewModel, LiveData/StateFlow, Navigation, WorkManager). Networking via Retrofit + OkHttp and JSON parsing with Moshi or Gson. Charts with MPAndroidChart.
+
+Design: Clean, professional, water/health themed. Primary color: sky-blue palette (examples: #0EA5E9, #38BDF8, #60A5FA) + neutral greys and white. Simple icons, good spacing, accessible fonts, large touch targets.
+
+Security: Only HTTPS; save auth token in EncryptedSharedPreferences. Validate all inputs client-side. Use Retrofit interceptor to attach Authorization header for authenticated endpoints.
+
+Backend base URL: configurable (e.g. http://localhost:5001 or your Vercel URL).
+
+2) Users & Authentication
+
+User: ASHA worker (one role).
+
+Login:
+
+Screen: User ID and Password fields; “Login” button.
+
+Request: POST /api/v1/auth/worker/login with { "user_id": "...", "password": "..." }.
+
+If response contains status: true (or returns JWT) → store token (EncryptedSharedPreferences) and user_id, alloted_zone from response (if returned). If backend returns only status: true, call GET /api/v1/workers/{user_id} to obtain the zone/profile, or include zone in login response.
+
+On success route to Dashboard.
+
+Show clear error messages for 401/invalid credentials/network issues.
+
+Session:
+
+Keep worker session until logout. Implement "Logout" to clear encrypted preferences and return to Login screen.
+
+Auto-refresh token if backend provides refresh token (otherwise re-login on expiry).
+
+3) Main screens & flows
+A. LoginActivity
+
+Fields: userId, password, "Forgot password" (optional).
+
+Behavior: Validate non-empty fields, show progress spinner during network call.
+
+B. DashboardActivity
+
+Shows three card summary counters: Resolved, Unresolved, Pending (counts).
+
+Quick-actions:
+
+Button: “Unresolved complaints” (goes to ComplaintList filtered).
+
+Button: “Resolved complaints”
+
+Button: “Pending complaints”
+
+Button: “Add Patient Complaint”
+
+Button: “Add Dirty Water Complaint”
+
+Button: “Ask for Medical Help”
+
+Small card: latest pH and Turbidity values (and a button to view historical / details).
+
+Visualizations:
+
+Pie chart of complaint statuses (resolved/unresolved/pending) from API.
+
+Bar or time-line for pH/turbidity (if multiple samples available).
+
+Pull-to-refresh to reload counts and charts.
+
+C. ComplaintListActivity
+
+Shows list (RecyclerView) of complaints (patient or dirty water — toggle or tabs).
+
+Default filter: status=1 (unresolved) and zone=currentWorkerZone.
+
+Each item: short summary, age, district, createdAt, small thumbnail (for dirty water), status badge.
+
+Search & sort: by date, days, severity (optional).
+
+Tap item -> ComplaintDetailsActivity.
+
+D. ComplaintDetailsActivity
+
+Full info of complaint: name, age, zone, complaint text, photos, ph, turbidity, days, createdAt.
+
+Change Status button with choices:
+
+1 = Unresolved
+
+2 = Resolved
+
+3 = Pending
+
+When status changed, call PUT /api/v1/complaints/{complaintId}/status with { "status": n } or call the specific endpoint per complaint type if required.
+
+Show success/error toast and update UI.
+
+E. AddPatientComplaintActivity (Form)
+
+Fields:
+
+user_id (auto-filled with logged-in worker id? — but backend expects user_id referencing Villager — careful: your backend examples use Villager IDs for complaints; if workers file on behalf of villagers you must either pick existing villager or create one first)
+
+state, district, taluka (optional: dropdowns if available)
+
+zone (auto-fill worker's zone or editable if permitted)
+
+symptoms (multiselect or text)
+
+age (number)
+
+complaint (text)
+
+days (number)
+
+ph (optional numeric)
+
+turbidity (optional numeric)
+
+Submit: POST /api/v1/patient-requests with body per API doc.
+
+Validate fields; show success screen on 201 and navigate back to Dashboard.
+
+F. AddDirtyWaterComplaintActivity (Form + Photo)
+
+Fields:
+
+user_id (Villager id or worker id depending on backend contract) — as discussed, backend example uses Villager ID; if worker files, send the workerId in workerId and villager as null/optional per backend.
+
+state, district, taluka
+
+zone (auto)
+
+age (optional)
+
+complaint (text)
+
+Photo capture: Capture or choose from gallery.
+
+Photo flow: upload to Supabase storage (see Photo Upload Flow below), obtain public URL, append "photo": "<url>" to request JSON.
+
+Submit: POST /api/v1/dirty-water-complaints with the photo URL inserted.
+
+Show upload progress and error handling.
+
+G. HelpRequest (Asking for Medical Help)
+
+Button on Dashboard: POST /api/v1/help-requests
+
+If authenticated: send with Authorization: Bearer <jwt> and body { "zone": "<Zone-A>" }.
+
+If unauthenticated or worker wants manual: POST /api/v1/help-requests with { "zone": "<Zone-A>", "workerId": "<workerId>" }.
+
+Show confirmation dialog and success/failure feedback.
+
+H. pH & Turbidity Screen
+
+Shows latest pH and turbidity (single values) retrieved from backend. If historical data available show a small line chart.
+
+Endpoint: GET endpoint for water quality (you said backend provides these — map to /api/v1/predictions/Zone-A or similar if backend exposes zone-based readings).
+
+4) API endpoints mapping (recommended usage & where to call)
+
+Use your provided Base URL variable and configure in Retrofit.
+
+Feature	Endpoint (from your doc)	Method	Required params	Client action
+Login	/api/v1/auth/worker/login	POST	{user_id, password}	On Login screen
+Get worker details	/api/v1/workers/{user_id} (if exists)	GET	Authorization optional	After login to fetch zone/profile
+Get patient complaints (zone+status+limit)	/api/v1/patient-requests?zone=Zone-A&status=1&limit=5	GET	zone, status	For Dashboard counts / lists
+Get dirty water complaints	/api/v1/dirty-water-complaints?status=1	GET	status, optionally zone	For Dashboard / lists (filter by zone on client)
+Add patient complaint	/api/v1/patient-requests	POST	patient JSON (see doc)	From AddPatientComplaintActivity
+Add dirty water complaint	/api/v1/dirty-water-complaints	POST	dirty JSON with photo URL	From AddDirtyWaterComplaintActivity after upload
+Update complaint status	/api/v1/complaints/{complaintId}/status	PUT	{ "status": n }	From ComplaintDetailsActivity
+Ask for help	/api/v1/help-requests	POST	{ zone } or { zone, workerId }	From Dashboard - Ask for Medical Help
+Trigger/Get predictions (ph/turbidity)	/api/v1/predictions/trigger or /api/v1/predictions/Zone-A	POST / GET	zone, payload	For pH/turbidity retrieval if applicable
+
+NOTE: adapt exact path/params if your backend uses different path/new naming; developer should define a Retrofit API interface with these endpoints.
+
+5) Photo upload to Supabase (explicit flow)
+
+On AddDirty screen, user taps “Capture photo”:
+
+Request camera permission (CAMERA) and optionally WRITE_EXTERNAL_STORAGE (for older Android).
+
+Launch camera Intent and get file/bitmap.
+
+Compress/crop/resize image (max 1MB recommended).
+
+Upload to Supabase storage:
+
+Option A: Use Supabase storage REST API POST /storage/v1/object/<bucket> with Authorization: Bearer <service_role_or_anon_key> and multipart/form-data; backend must provide appropriate key or generate signed upload URL.
+
+Option B (preferred for security): Backend issues a signed upload URL (pre-signed) for Supabase; app uploads directly to that URL (no secret keys in app).
+
+On upload success, Supabase returns a public URL or path. Use the full URL in your dirty-water complaint JSON as "photo": "<supabase_public_url>".
+
+Submit POST /api/v1/dirty-water-complaints with photo URL.
+
+UX: show upload progress indicator; retry on network failure.
+
+Developer note: avoid embedding Supabase service role keys in the app. Use backend to generate signed upload URLs or accept the file directly via backend which forwards to Supabase.
+
+6) Data model mapping (client-side DTOs)
+
+Map backend schema fields into Kotlin data classes. Example important fields:
+
+AshaWorker: userId, mobileNo, name, lastName, zone, age, gender, status
+
+Villager: id, mobile_no, name, last_name, latitude, longitude, zone, age, gender
+
+PatientRequest: id, user_id, state, district, zone, symptoms: List<String>, age, complaint, status, days, ph, turbidity, createdAt
+
+DirtyWaterComplaint: id, user_id, state, district, zone, age, complaint, status, photo, ph, turbidity, createdAt
+
+HelpRequest: id, zone, workerId, createdAt
+
+ZonePrediction: zone, ph, turbidity, payload, receivedAt
+
+7) Business rules & zone logic
+
+Each ASHA worker has a single zone (alloted_zone).
+
+Filter rule: Worker can only view and operate on complaints where complaint.zone == worker.zone.
+
+Status mapping:
+
+1 — Unresolved (open)
+
+2 — Resolved
+
+3 — Pending
+
+For endpoints that require only zone (e.g., help requests or zone-predictions), send only zone if backend expects it. For other create/update operations include user_id to track who created it.
+
+8) UX & Validation
+
+Client-side validation for forms (required fields, valid age numbers, complaint length limits).
+
+Provide confirmation dialogs for destructive actions (e.g., “Mark as resolved?”).
+
+Loading states for each network call, and explicit retry actions.
+
+Empty-state illustrations (no complaints found) with explanation and a CTA to add complaint.
+
+Accessibility: contentDescription for images, large fonts, good contrast.
+
+9) Offline & reliability (recommended)
+
+Use Room for local caching of recent complaints and allow read-only browsing offline.
+
+Use WorkManager for retrying failed uploads (dirty-photos) when network resumes.
+
+Graceful UI: show offline indicator.
+
+10) Logging, monitoring & testing
+
+Add logging for network errors (but do not log sensitive data).
+
+Instrument important flows for analytics (login success/failure, complaint added, photo uploads).
+
+Unit tests for ViewModel logic; integration tests for Retrofit endpoints (mock server).
+
+Acceptance tests: End-to-end tests to ensure login -> dashboard -> add complaint -> list -> change status flows.
+
+11) Security & privacy
+
+Use TLS. Do not store raw passwords.
+
+Store tokens in EncryptedSharedPreferences.
+
+Use least privilege for Supabase: prefer signed upload URLs generated by server.
+
+Follow privacy rules for photos and personal data (GDPR-like best practices): show minimal PII, encrypt network transmissions.
+
+12) Error handling & UI messages (examples)
+
+400 → “Invalid request — please check the form.”
+
+401 → “Login failed — wrong user ID or password.”
+
+403 → “You are not authorized to access this resource.”
+
+500 → “Server error — try again later.”
+
+Network unavailable → “No internet connection — check and retry.”
+
+13) Visual design tokens (suggested)
+
+Primary: #0EA5E9 (Sky Blue)
+
+Accent: #60A5FA
+
+Dark Text: #0F172A
+
+Background: #F8FAFC
+
+Success: #10B981
+
+Warning: #F59E0B
+
+Error: #EF4444
+
+14) Deliverables & developer checklist
+
+ Android project (Kotlin + XML) with modular package structure (ui/, viewmodel/, data/, network/, util/).
+
+ Retrofit API interface & Response models matching backend.
+
+ Login flow, token storage, and session handling.
+
+ Dashboard with counters and pie chart (MPAndroidChart).
+
+ Complaint list & details, with status change (calls PUT endpoint).
+
+ Add Patient and Add Dirty forms with validation.
+
+ Photo capture & Supabase upload (signed URL flow preferred).
+
+ pH & turbidity display (single value + small chart).
+
+ Ask for Help flow.
+
+ Error handling and offline caching (Room) + retry mechanism (WorkManager).
+
+ Unit tests for ViewModels, instrumentation tests for important flows.
+
+ README with build/run instructions and where to set Base URL & Supabase keys.
+
+15) Sample payloads (from your doc) — include these in developer handoff
+
+Login:
+
+POST /api/v1/auth/worker/login
+{
+  "user_id": "asha_worker_01",
+  "password": "password123"
+}
+
+
+Add Patient Request:
+
+POST /api/v1/patient-requests
+{
+  "user_id": "656b6a48f5a2a22f3f9e9a1b",
+  "state": "Maharashtra",
+  "district": "Jalgaon",
+  "zone": "Zone-A",
+  "symptoms": ["Fever","Headache"],
+  "age": 45,
+  "complaint": "Feeling unwell for the past three days with a high fever.",
+  "days": 3
+}
+
+
+Add Dirty Water Complaint (after Supabase upload):
+
+POST /api/v1/dirty-water-complaints
+{
+  "user_id": "656b6a48f5a2a22f3f9e9a1b",
+  "state": "Maharashtra",
+  "district": "Jalgaon",
+  "zone": "Zone-A",
+  "age": 45,
+  "complaint": "The water from the main tap is brown and smells bad.",
+  "photo": "https://your-supabase-bucket.s3.region.amazonaws.com/dirty_water.jpg"
+}
+
+
+Update complaint status:
+
+PUT /api/v1/complaints/{complaintId}/status
+{ "status": 2 }
+
+
+Ask for help (authenticated):
+
+POST /api/v1/help-requests
+Headers: Authorization: Bearer <worker_jwt_token>
+Body: { "zone": "Zone-A" }
+
+16) Acceptance criteria (what "done" looks like)
+
+Worker can log in with provided credentials and remain logged in across app restarts.
+
+Dashboard displays counts and pie chart with data from backend.
+
+Complaints listing shows only complaints for the worker’s zone.
+
+Worker can add patient and dirty water complaints; dirty water photo is uploaded to Supabase and the returned URL is included in the complaint POST.
+
+Worker can change status of a complaint and see the change reflected in the list/pie chart.
+
+Worker can request medical help and receive confirmation.
+
+pH and turbidity values are retrieved and displayed.
+
+Basic offline cache + retry on photo upload implemented.
