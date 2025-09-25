@@ -78,6 +78,7 @@ const triggerPredictionSchema = Joi.array().items(
 const addHelpRequestSchema = Joi.object({
   zone: Joi.string().required(),
   workerId: Joi.string().optional(), // Can be inferred from token
+  doctorsRequired: Joi.number().integer().min(1).required(), // Add this line
 });
 
 // Generic pagination query validation

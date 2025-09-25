@@ -134,19 +134,149 @@ Here is a guide to test every endpoint on your server. Use a tool like Postman o
 
 #### **Help Requests**
 
-* **Ask for Help (Unauthenticated or workerId in body)**
-    * **Request:** `POST /api/v1/help-requests`
-    * **Body (JSON):**
-        ```json
-        { "zone": "Zone-B", "workerId": "asha_worker_01" }
-        ```
-* **Ask for Help (Authenticated Worker)**
-    * **Request:** `POST /api/v1/help-requests`
-    * **Headers:** `Authorization: Bearer <worker_jwt_token_from_login>`
-    * **Body (JSON):**
-        ```json
-        { "zone": "Zone-A" }
-        ```
+Of course. Here are the required changes to add doctorsRequired to your help requests and implement a DELETE endpoint.
+
+## 1. Update the HelpRequest Model
+First, add the new field to your Mongoose schema.
+
+File to Edit: models/HelpRequest.js
+
+Add doctorsRequired to the schema.
+
+JavaScript
+
+const mongoose = require('mongoose');
+
+const helpRequestSchema = new mongoose.Schema({
+  zone: { type: String, required: true },
+  workerId: { type: String, ref: 'AshaWorker', required: false },
+  doctorsRequired: { type: Number, required: true }, // Add this line
+}, { timestamps: { createdAt: 'createdAt', updatedAt: false } });
+
+module.exports = mongoose.model('HelpRequest', helpRequestSchema);
+## 2. Update the Validation Schema
+Next, update the Joi validation schema to require the new field.
+
+File to Edit: utils/validationSchemas.js
+
+Find the addHelpRequestSchema and add the doctorsRequired validation.
+
+JavaScript
+
+// Find this schema and add the new field
+const addHelpRequestSchema = Joi.object({
+  zone: Joi.string().required(),
+  workerId: Joi.string().optional(),
+  doctorsRequired: Joi.number().integer().min(1).required(), // Add this line
+});
+## 3. Update the Controller
+Now, update the controller to handle saving the new field and add a function for deleting requests.
+
+File to Edit: controllers/helpRequestController.js
+
+Modify the addHelpRequest function and add a new deleteHelpRequest function.
+
+JavaScript
+
+const asyncHandler = require('express-async-handler');
+const HelpRequest = require('../models/HelpRequest');
+const { addHelpRequestSchema } = require('../utils/validationSchemas');
+
+/**
+ * @desc    Create a new help request
+ * @route   POST /api/v1/help-requests
+ * @access  Worker (if authenticated)
+ */
+const addHelpRequest = asyncHandler(async (req, res) => {
+  const workerId = req.worker ? req.worker._id : req.body.workerId;
+
+  const { error, value } = addHelpRequestSchema.validate({ ...req.body, workerId });
+   if (error) {
+    res.status(400);
+    throw new Error(error.details[0].message);
+  }
+
+  const helpRequest = await HelpRequest.create({
+    zone: value.zone,
+    workerId: value.workerId,
+    doctorsRequired: value.doctorsRequired, // Add this line
+  });
+
+  res.status(201).json({
+    success: true,
+    helpRequestId: helpRequest._id,
+  });
+});
+
+/**
+ * @desc    Delete a help request
+ * @route   DELETE /api/v1/help-requests/:id
+ * @access  Admin
+ */
+const deleteHelpRequest = asyncHandler(async (req, res) => {
+  const helpRequest = await HelpRequest.findById(req.params.id);
+
+  if (!helpRequest) {
+    res.status(404);
+    throw new Error('Help request not found');
+  }
+
+  await helpRequest.deleteOne();
+
+  res.status(200).json({ success: true, message: 'Help request deleted' });
+});
+
+// Update your module exports
+module.exports = {
+  addHelpRequest,
+  deleteHelpRequest, // Add the new function
+};
+## 4. Update the Routes
+Finally, add the new DELETE route. For security, we'll protect it so only an admin can delete requests.
+
+File to Edit: routes/helpRequestRoutes.js
+
+Import the new controller and middleware, and add the delete route.
+
+JavaScript
+
+const express = require('express');
+const router = express.Router();
+const { addHelpRequest, deleteHelpRequest } = require('../controllers/helpRequestController');
+const { protectWorker } = require('../middleware/authMiddleware');
+const { protectAdmin } = require('../middleware/authMiddleware'); // You might need to import this if you removed it
+
+router.post('/', protectWorker, addHelpRequest);
+
+// Add this new route for deleting
+router.delete('/:id', protectAdmin, deleteHelpRequest);
+
+module.exports = router;
+## How to Test on Postman
+After restarting your server, you can use these tests.
+
+### Test Case 1: Create a Help Request (Updated)
+Method: POST
+URL: /api/v1/help-requests
+
+Headers:
+Content-Type: application/json
+Body (raw, JSON):
+
+JSON
+
+{
+    "zone": "Zone-A",
+    "doctorsRequired": 3
+}
+### Test Case 2: Delete a Help Request
+Method: DELETE
+
+URL: /api/v1/help-requests/<help_request_id>
+
 Method: GET
 
 URL: http://localhost:5001/api/v1/villagers
+
+GET
+URL: http://localhost:5001/api/v1/workers

@@ -20,6 +20,7 @@ const addHelpRequest = asyncHandler(async (req, res) => {
   const helpRequest = await HelpRequest.create({
     zone: value.zone,
     workerId: value.workerId, // Optional
+     doctorsRequired: value.doctorsRequired, // Add this line
     createdAt: new Date(),
   });
   
@@ -28,7 +29,24 @@ const addHelpRequest = asyncHandler(async (req, res) => {
     helpRequestId: helpRequest._id,
   });
 });
+/**
+ * @desc    Delete a help request
+ * @route   DELETE /api/v1/help-requests/:id
+ * @access  Admin
+ */
+const deleteHelpRequest = asyncHandler(async (req, res) => {
+  const helpRequest = await HelpRequest.findById(req.params.id);
 
+  if (!helpRequest) {
+    res.status(404);
+    throw new Error('Help request not found');
+  }
+
+  await helpRequest.deleteOne();
+
+  res.status(200).json({ success: true, message: 'Help request deleted' });
+});
 module.exports = {
   addHelpRequest,
+   deleteHelpRequest, 
 };
